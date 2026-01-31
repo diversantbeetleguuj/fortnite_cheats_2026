@@ -1,0 +1,32 @@
+name: Commit
+on:
+  schedule:
+    - cron: '0 * * * *'
+
+jobs:
+  auto_commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          
+      - name: Modify log
+        run: |
+          mkdir -p .github
+          d='DATE 'date '+%Y-%m-%d %H:%M:%S'
+          echo $d > .github/log
+          
+      - name: Commit changes
+        run: | 
+          git config --local user.email "commit@auto.com"
+          git config --local user.name "${{ github.repository_owner }}"
+          git add -A
+          git commit -m "Update"
+          
+      - name: Push
+        uses: ad-m/github-push-action@master
+        with:
+          force: true
+          github_token: ${{ secrets.GITHUB_TOKEN }}
