@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Neon Grid</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #000;
+      height: 100vh;
+      font-family: system-ui, sans-serif;
+    }
+    canvas {
+      display: block;
+    }
+    #controls {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      color: #0f0;
+      background: rgba(0,0,0,0.5);
+      padding: 16px 24px;
+      border-radius: 10px;
+      border: 1px solid #0f08;
+      backdrop-filter: blur(10px);
+      user-select: none;
+    }
+    button {
+      background: #0f08;
+      border: 1px solid #0f0c;
+      color: #fff;
+      padding: 8px 16px;
+      margin: 6px 4px 0 0;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.25s;
+    }
+    button:hover {
+      background: #0f0c;
+      transform: scale(1.05);
+    }
+    #status {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: #0f8;
+      font-size: 14px;
+      opacity: 0.6;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+
+<div id="controls">
+  <div>Nodes: <span id="nodeCount">0</span></div>
+  <button onclick="addNodes(300)">+300</button>
+  <button onclick="addNodes(1000)">+1000</button>
+  <button onclick="clearAll()">Reset</button>
+  <button onclick="toggleConnect()">Connections: <span id="connectMode">ON</span></button>
+  <button onclick="togglePulse()">Pulse: <span id="pulseMode">ON</span></button>
+  <button onclick="speedUp()">Speed +</button>
+  <button onclick="speedDown()">Speed -</button>
+</div>
+
+<div id="status">Hold mouse → attract | Double-click → explode</div>
+
+<canvas id="canvas"></canvas>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const countDisplay = document.getElementById('nodeCount');
+const connectBtn = document.getElementById('connectMode');
+const pulseBtn = document.getElementById('pulseMode');
+
+let width, height, nodes = [], mouse = {x:0,y:0,pressed:false}, connect = true, pulse = true, globalSpeed = 1;
+
+function resizeCanvas() {
+  width = canvas.width = innerWidth;
+  height = canvas.height = innerHeight;
+}
+
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+class Node {
+  constructor() {
+    this.x = Math.random() * width;
+    this.y = Math.random() * height;
+    this.vx = (Math.random() - 0.5) * 1.2;
+    this.vy = (Math.random() - 0.5) * 1.2;
+    this.radius = Math.random() * 2 + 1;
+    this.hue = Math.random() * 360;
+    this.glow = 0;
+  }
+  update() {
+    if (mouse.pressed) {
+      let dx = mouse.x - this.x;
+      let dy = mouse.y - this.y;
+      let distance = Math.hypot(dx, dy);
+      if (distance < 280) {
+        let force = (280 - distance) / 280 * 0.9;
+        let ax = dx / distance * force * (connect ? 1 : -1);
+        let ay = dy / distance * force * (connect ? 1 : -1);
+        this.vx += ax;
+        this.vy += ay;
+      }
+    }
+
+    this.x += this.vx * globalSpeed;
+    this.y += this.vy * globalSpeed;
+
+    this.vx *= 0.985;
+    this.vy *= 0.985;
+
+    if (this.x < 0 || this.x > width) this.vx *= -0.9;
+    if (this.y < 0 || this.y > height) this.vy *= -0.9;
+
+    if (pulse) this.glow = Math.sin(Date.now() * 0.003 + this.hue) * 0.5 + 0.5;
+    if (connect) this.hue = (this.hue + 0.4) % 360;
+  }
+  draw() {
+    ctx.globalAlpha = 0.9 + this.glow * 0.4;
+    ctx.fillStyle = `hsl(${this.hue}, 100%, 65%)`;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.radius + this.glow * 1.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (connect) {
+      ctx.globalAlpha = 0.12 + this.glow * 0.08;
+      ctx.strokeStyle = `hsl(${this.hue}, 80%, 60%)`;
+      ctx.lineWidth = 0.8;
+      for (let other of nodes) {
+        if (other === this) continue;
+        let dist = Math.hypot(other.x - this.x, other.y - this.y);
+        if (dist < 140) {
+          ctx.beginPath();
+          ctx.moveTo(this.x, this.y);
+          ctx.lineTo(other.x, other.y);
+          ctx.stroke();
+        }
+      }
+    }
+  }
+}
+
+function spawn(count = 600) {
+  nodes = [];
+  for (let i = 0; i < count; i++) {
+    nodes.push(new Node());
+  }
+  countDisplay.textContent = nodes.length;
+}
+
+function addNodes(count) {
+  for (let i = 0; i < count; i++) {
+    nodes.push(new Node());
+  }
+  countDisplay.textContent = nodes.length;
+}
+
+function clearAll() {
+  spawn(0);
+  spawn(800);
+}
+
+function toggleConnect() {
+  connect = !connect;
+  connectBtn.textContent = connect ? 'ON' : 'OFF';
+}
+
+function togglePulse() {
+  pulse = !pulse;
+  pulseBtn.textContent = pulse ? 'ON' : 'OFF';
+}
+
+function speedUp() {
+  globalSpeed = Math.min(5, globalSpeed * 1.4);
+}
+
+function speedDown() {
+  globalSpeed = Math.max(0.2, globalSpeed / 1.4);
+}
+
+canvas.addEventListener('pointermove', e => {
+  mouse.x = e.clientX;
+  mouse.y = e.clientY;
+});
+
+canvas.addEventListener('pointerdown', () => mouse.pressed = true);
+canvas.addEventListener('pointerup', () => mouse.pressed = false);
+
+canvas.addEventListener('dblclick', e => {
+  for (let node of nodes) {
+    let dx = e.clientX - node.x;
+    let dy = e.clientY - node.y;
+    let dist = Math.hypot(dx, dy);
+    if (dist < 200) {
+      let power = (200 - dist) / 200 * 18;
+      node.vx -= dx / dist * power;
+      node.vy -= dy / dist * power;
+      node.glow = 1.2;
+    }
+  }
+});
+
+function animate() {
+  ctx.fillStyle = 'rgba(0,0,0,0.08)';
+  ctx.fillRect(0, 0, width, height);
+
+  for (let node of nodes) {
+    node.update();
+    node.draw();
+  }
+
+  requestAnimationFrame(animate);
+}
+
+spawn();
+animate();
+</script>
+</body>
+</html>
