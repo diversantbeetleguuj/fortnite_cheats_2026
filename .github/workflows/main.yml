@@ -1,4 +1,4 @@
-name: Commit
+name: Auto Commit
 on:
   schedule:
     - cron: '0 * * * *'
@@ -15,12 +15,12 @@ jobs:
       - name: Modify log
         run: |
           mkdir -p .github
-          d='DATE 'date '+%Y-%m-%d %H:%M:%S'
-          echo $d > .github/log
+          d="DATE $(date '+%Y-%m-%d %H:%M:%S')"
+          echo "$d" > .github/log
           
       - name: Commit changes
         run: | 
-          git config --local user.email "commit@auto.com"
+          git config --local user.email "your@email.com"
           git config --local user.name "${{ github.repository_owner }}"
           git add -A
           git commit -m "Update"
